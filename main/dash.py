@@ -4,10 +4,10 @@ import pandas as pd
 # Load the datasets
 @st.cache_data
 def load_data():
-    data4 = pd.read_excel('data (4).xlsx')
-    data5 = pd.read_excel('data (5).xlsx')
-    data6 = pd.read_excel('data (6).xlsx')
-    data7 = pd.read_excel('data (7).xlsx')
+    data4 = pd.read_excel('data4.xlsx')
+    data5 = pd.read_excel('data5.xlsx')
+    data6 = pd.read_excel('data6.xlsx')
+    data7 = pd.read_excel('data7.xlsx')
     return data4, data5, data6, data7
 
 data4, data5, data6, data7 = load_data()
