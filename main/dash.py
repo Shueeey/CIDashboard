@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # Load the datasets
-@st.cache
+@st.cache_data
 def load_data():
     data4 = pd.read_excel('data (4).xlsx')
     data5 = pd.read_excel('data (5).xlsx')
