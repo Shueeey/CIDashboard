@@ -9,10 +9,10 @@ import pandas as pd
 def load_data():
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the script
     print(script_dir)
-    data4 = pd.read_excel('data4.csv')
-    data5 = pd.read_excel('data5.csv')
-    data6 = pd.read_excel('data6.csv')
-    data7 = pd.read_excel('data7.csv')
+    data4 = pd.read_excel('/mount/src/cidashboard/maindata4.csv')
+    data5 = pd.read_excel('/mount/src/cidashboard/maindata5.csv')
+    data6 = pd.read_excel('/mount/src/cidashboard/maindata6.csv')
+    data7 = pd.read_excel('/mount/src/cidashboard/maindata7.csv')
     return data4, data5, data6, data7
 
 
