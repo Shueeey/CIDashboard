@@ -3,11 +3,17 @@ import os
 import streamlit as st
 import pandas as pd
 
+
 # Load the datasets
 @st.cache_data
 def load_data():
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory of the script
     print(script_dir)
+    data4 = pd.read_excel('data4.csv')
+    data5 = pd.read_excel('data5.csv')
+    data6 = pd.read_excel('data6.csv')
+    data7 = pd.read_excel('data7.csv')
+    return data4, data5, data6, data7
 
 
 data4, data5, data6, data7 = load_data()
