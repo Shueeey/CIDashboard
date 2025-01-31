@@ -1,9 +1,16 @@
 import os
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime
+
+# Check if Plotly is installed
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    plotly_available = True
+except ImportError:
+    plotly_available = False
+    st.warning("Plotly is not installed. Falling back to Streamlit's native charts.")
 
 # Load the datasets
 @st.cache_data
@@ -53,10 +60,13 @@ if dataset_choice == "Dataset 4":
     col2.metric("Unique Devices", filtered_data4['Device Platform'].nunique())
     col3.metric("Average Launches per Day", round(filtered_data4['App Launch Count'].mean(), 2))
 
-    # Interactive Plotly line chart
-    fig = px.line(filtered_data4, x='Aggregation Date', y='App Launch Count', color='Device Platform',
-                  title='App Launch Count Over Time', labels={'App Launch Count': 'Launch Count', 'Aggregation Date': 'Date'})
-    st.plotly_chart(fig, use_container_width=True)
+    # Chart based on Plotly availability
+    if plotly_available:
+        fig = px.line(filtered_data4, x='Aggregation Date', y='App Launch Count', color='Device Platform',
+                      title='App Launch Count Over Time', labels={'App Launch Count': 'Launch Count', 'Aggregation Date': 'Date'})
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.line_chart(filtered_data4.set_index('Aggregation Date')['App Launch Count'])
 
     # Show raw data in an expander
     with st.expander("View Raw Data"):
@@ -74,10 +84,13 @@ elif dataset_choice == "Dataset 5":
     col1.metric("Total App Launches", filtered_data5['App Launch Count'].sum())
     col2.metric("Average Launches per Day", round(filtered_data5['App Launch Count'].mean(), 2))
 
-    # Interactive Plotly bar chart
-    fig = px.bar(filtered_data5, x='Aggregation Date', y='App Launch Count',
-                 title='App Launch Count by Date', labels={'App Launch Count': 'Launch Count', 'Aggregation Date': 'Date'})
-    st.plotly_chart(fig, use_container_width=True)
+    # Chart based on Plotly availability
+    if plotly_available:
+        fig = px.bar(filtered_data5, x='Aggregation Date', y='App Launch Count',
+                     title='App Launch Count by Date', labels={'App Launch Count': 'Launch Count', 'Aggregation Date': 'Date'})
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.bar_chart(filtered_data5.set_index('Aggregation Date')['App Launch Count'])
 
     # Show raw data in an expander
     with st.expander("View Raw Data"):
@@ -95,10 +108,13 @@ elif dataset_choice == "Dataset 6":
     col1.metric("Total Active Users", filtered_data6['Active Users'].sum())
     col2.metric("Average Active Users per Day", round(filtered_data6['Active Users'].mean(), 2))
 
-    # Interactive Plotly area chart
-    fig = px.area(filtered_data6, x='Aggregation Date', y='Active Users',
-                  title='Active Users Over Time', labels={'Active Users': 'Users', 'Aggregation Date': 'Date'})
-    st.plotly_chart(fig, use_container_width=True)
+    # Chart based on Plotly availability
+    if plotly_available:
+        fig = px.area(filtered_data6, x='Aggregation Date', y='Active Users',
+                      title='Active Users Over Time', labels={'Active Users': 'Users', 'Aggregation Date': 'Date'})
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.area_chart(filtered_data6.set_index('Aggregation Date')['Active Users'])
 
     # Show raw data in an expander
     with st.expander("View Raw Data"):
@@ -112,10 +128,13 @@ elif dataset_choice == "Dataset 7":
     col1.metric("Total Active Users", data7['Active Users'].sum())
     col2.metric("Unique Player Versions", data7['Player Version'].nunique())
 
-    # Interactive Plotly bar chart
-    fig = px.bar(data7, x='Player Version', y='Active Users',
-                 title='Active Users by Player Version', labels={'Active Users': 'Users', 'Player Version': 'Version'})
-    st.plotly_chart(fig, use_container_width=True)
+    # Chart based on Plotly availability
+    if plotly_available:
+        fig = px.bar(data7, x='Player Version', y='Active Users',
+                     title='Active Users by Player Version', labels={'Active Users': 'Users', 'Player Version': 'Version'})
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.bar_chart(data7.set_index('Player Version')['Active Users'])
 
     # Show raw data in an expander
     with st.expander("View Raw Data"):
