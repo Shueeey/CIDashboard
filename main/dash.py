@@ -14,6 +14,10 @@ def load_data():
     data5 = pd.read_csv('/mount/src/cidashboard/main/data5.csv')
     data6 = pd.read_csv('/mount/src/cidashboard/main/data6.csv')
     data7 = pd.read_csv('/mount/src/cidashboard/main/data7.csv')
+    print(data4.columns)
+    print(data5.columns)
+    print(data6.columns)
+    print(data7.columns)
     return data4, data5, data6, data7
 
 
@@ -28,6 +32,7 @@ dataset_choice = st.sidebar.selectbox("Choose Dataset", ["Dataset 4", "Dataset 5
 
 if dataset_choice == "Dataset 4":
     st.header("Dataset 4: App Launch Count by Device Platform")
+
     st.dataframe(data4)
     st.line_chart(data4.set_index('Aggregation Date')['App Launch Count'])
 
