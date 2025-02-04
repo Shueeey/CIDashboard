@@ -822,87 +822,156 @@ else:  # App Utilization Analytics
             col1.metric("Total Active Users", f"{filtered_data['Active Users'].sum():,}")
             col2.metric("Daily Average", f"{filtered_data['Active Users'].mean():,.0f}")
 
-if plotly_available:
-    fig = px.area(
-        filtered_data,
-        x='Aggregation Date',
-        y='Active Users',
-        title='Active Users Over Time'
-    )
-    fig.add_scatter(
-        x=filtered_data['Aggregation Date'],
-        y=filtered_data['Active Users'].rolling(7).mean(),
-        name='7-day Moving Average',
-        line=dict(color='red', dash='dash')
-    )
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.area_chart(filtered_data.set_index('Aggregation Date')['Active Users'])
+        if plotly_available:
+            fig = px.area(
+                filtered_data,
+                x='Aggregation Date',
+                y='Active Users',
+                title='Active Users Over Time'
+            )
+            fig.add_scatter(
+                x=filtered_data['Aggregation Date'],
+                y=filtered_data['Active Users'].rolling(7).mean(),
+                name='7-day Moving Average',
+                line=dict(color='red', dash='dash')
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.area_chart(filtered_data.set_index('Aggregation Date')['Active Users'])
 
-    # Weekly patterns analysis
-st.subheader("Weekly Activity Patterns")
-filtered_data['Day'] = filtered_data['Aggregation Date'].dt.day_name()
-daily_patterns = filtered_data.groupby('Day')['Active Users'].agg([
-    ('Average', 'mean'),
-    ('Peak', 'max'),
-    ('Minimum', 'min')
-]).round(0)
+            # Weekly patterns analysis
+        st.subheader("Weekly Activity Patterns")
+        filtered_data['Day'] = filtered_data['Aggregation Date'].dt.day_name()
+        daily_patterns = filtered_data.groupby('Day')['Active Users'].agg([
+            ('Average', 'mean'),
+            ('Peak', 'max'),
+            ('Minimum', 'min')
+        ]).round(0)
 
-# Ensure correct day order
-day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-daily_patterns = daily_patterns.reindex(day_order)
+        # Ensure correct day order
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        daily_patterns = daily_patterns.reindex(day_order)
 
-if plotly_available:
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=daily_patterns.index,
-        y=daily_patterns['Average'],
-        mode='lines+markers',
-        name='Average Active Users',
-        line=dict(color='blue')
-    ))
-    fig.add_trace(go.Scatter(
-        x=daily_patterns.index,
-        y=daily_patterns['Peak'],
-        mode='lines+markers',
-        name='Peak Active Users',
-        line=dict(color='green')
-    ))
-    fig.add_trace(go.Scatter(
-        x=daily_patterns.index,
-        y=daily_patterns['Minimum'],
-        mode='lines+markers',
-        name='Minimum Active Users',
-        line=dict(color='red')
-    ))
-    fig.update_layout(title='Weekly Activity Patterns', xaxis_title='Day of the Week', yaxis_title='Active Users')
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.line_chart(daily_patterns)
+        if plotly_available:
+            fig = px.bar(
+                daily_patterns,
+                y='Average',
+                title='Average Daily Active Users',
+                labels={'index': 'Day', 'Average': 'Active Users'}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.bar_chart(daily_patterns['Average'])
 
-# Version distribution
-st.subheader("Player Version Distribution")
-version_dist = data7['Player Version'].value_counts(normalize=True) * 100
-st.write(version_dist)
+    else:  # Player Versions
+        st.header("🎮 Player Version Distribution")
 
-if plotly_available:
-    fig = px.pie(
-        names=version_dist.index,
-        values=version_dist.values,
-        title='Player Version Distribution'
-    )
-    st.plotly_chart(fig, use_container_width=True)
-else:
-    st.bar_chart(version_dist)
+        if not data7.empty:
+            col1, col2 = st.columns(2)
+            col1.metric("Total Users", f"{data7['Active Users'].sum():,}")
+            col2.metric("Versions", data7['Player Version'].nunique())
 
-# Display data source information
-st.sidebar.markdown(
+            # Version distribution
+            if plotly_available:
+                fig = px.bar(
+                    data7,
+                    x='Player Version',
+                    y='Active Users',
+                    title='Users by Player Version'
+                )
+                fig.update_layout(xaxis_tickangle=-45)
+                st.plotly_chart(fig, use_container_width=True)
+
+                # Pie chart view
+                fig2 = px.pie(
+                    data7,
+                    values='Active Users',
+                    names='Player Version',
+                    title='Version Distribution'
+                )
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.bar_chart(data7.set_index('Player Version')['Active Users'])
+
+            # Version adoption metrics
+            st.subheader("Version Adoption Metrics")
+            total_users = data7['Active Users'].sum()
+            version_metrics = data7.copy()
+            version_metrics['Percentage'] = (version_metrics['Active Users'] / total_users * 100).round(1)
+            version_metrics = version_metrics.sort_values('Active Users', ascending=False)
+
+            st.dataframe(
+                version_metrics[['Player Version', 'Active Users', 'Percentage']],
+                use_container_width=True
+            )
+        else:
+            st.warning("No player version data available.")
+
+# Add data table with filters
+st.sidebar.title("📊 Additional Options")
+if st.sidebar.checkbox("Show Raw Data"):
+    st.subheader("🔍 Raw Data View")
+    try:
+        if main_page == "App Utilization Analytics":
+            if dataset_choice == "App Launches by Platform":
+                if not filtered_data.empty:
+                    st.dataframe(filtered_data)
+                else:
+                    st.warning("No data available to display.")
+            elif dataset_choice == "Daily App Launches":
+                if not filtered_data.empty:
+                    st.dataframe(filtered_data)
+                else:
+                    st.warning("No data available to display.")
+            elif dataset_choice == "Active Users":
+                if not filtered_data.empty:
+                    st.dataframe(filtered_data)
+                else:
+                    st.warning("No data available to display.")
+            else:
+                if not data7.empty:
+                    st.dataframe(data7)
+                else:
+                    st.warning("No player version data available.")
+        else:  # Ideas Management Dashboard
+            if not filtered_data.empty:
+                available_columns = filtered_data.columns.tolist()
+                default_columns = ['Title', 'Team', 'State', 'Priority  Level', 'Lead', 'Date']
+                # Only include default columns that actually exist in the dataset
+                default_columns = [col for col in default_columns if col in available_columns]
+
+                columns_to_display = st.multiselect(
+                    "Select columns to display",
+                    available_columns,
+                    default=default_columns
+                )
+
+                if columns_to_display:
+                    st.dataframe(
+                        filtered_data[columns_to_display].style.background_gradient(
+                            subset=['Priority  Level']
+                        ),
+                        use_container_width=True
+                    )
+                else:
+                    st.warning("Please select at least one column to display.")
+            else:
+                st.warning("No data available for the selected filters.")
+    except Exception as e:
+        st.error(f"Error displaying data: {str(e)}")
+
+# Footer
+st.sidebar.markdown("---")
+st.sidebar.markdown("📊 **Analytics Dashboard** - v2.0")
+st.sidebar.markdown("Built with ❤️ by Sudaraka")
+
+# Add help tooltip
+st.sidebar.info(
     """
-    **Data Sources:**
-    - Ideas Hub: [SharePoint List](https://support.microsoft.com/en-us/office/introduction-to-lists-0a01ae25-4cd2-46b3-9e6e-744b4a9b94ea)
-    - App Analytics: [Google Analytics](https://analytics.google.com/)
+    💡 **Tips:**
+    - Use the search bar to find specific submitters
+    - Filter by team to see team-specific analytics
+    - Toggle 'Show Raw Data' to view detailed information
+    - Use date filters to analyze trends over time
     """
 )
-
-# Display app version
-st.sidebar.info("App Version: 1.0.0")
