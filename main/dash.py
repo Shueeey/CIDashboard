@@ -1,8 +1,15 @@
 import os
-import streamlit as st
 import pandas as pd
 from datetime import datetime
 import calendar
+import streamlit as st
+
+# Set page config must be the first Streamlit command
+st.set_page_config(
+    page_title="Combined Analytics Dashboard",
+    page_icon="📊",
+    layout="wide"
+)
 
 # Check if Plotly is installed
 try:
@@ -14,13 +21,6 @@ try:
 except ImportError:
     plotly_available = False
     st.warning("Plotly is not installed. Using Streamlit's native charts.")
-
-# Set page config
-st.set_page_config(
-    page_title="Combined Analytics Dashboard",
-    page_icon="📊",
-    layout="wide"
-)
 
 # Custom CSS
 st.markdown("""
@@ -46,34 +46,42 @@ st.markdown("""
 # Load all datasets
 @st.cache_data
 def load_all_data():
-    # Load App Utilization data
-    data4 = pd.read_csv('/mount/src/cidashboard/main/data4.csv')
-    data5 = pd.read_csv('/mount/src/cidashboard/main/data5.csv')
-    data6 = pd.read_csv('/mount/src/cidashboard/main/data6.csv')
-    data7 = pd.read_csv('/mount/src/cidashboard/main/data7.csv')
+    try:
+        # Load App Utilization data
+        data4 = pd.read_csv('/mount/src/cidashboard/main/data4.csv')
+        data5 = pd.read_csv('/mount/src/cidashboard/main/data5.csv')
+        data6 = pd.read_csv('/mount/src/cidashboard/main/data6.csv')
+        data7 = pd.read_csv('/mount/src/cidashboard/main/data7.csv')
 
-    # Convert dates for app data
-    for df in [data4, data5, data6]:
-        df['Aggregation Date'] = pd.to_datetime(df['Aggregation Date'])
+        # Convert dates for app data
+        for df in [data4, data5, data6]:
+            df['Aggregation Date'] = pd.to_datetime(df['Aggregation Date'])
 
-    # Load SSC data
-    ssc_data = pd.read_csv('SSC.csv')
+        # Load SSC data
+        ssc_data = pd.read_csv('SSC.csv')
 
-    # Convert SSC date columns
-    date_columns = ['Date', 'Closed Date']
-    for col in date_columns:
-        ssc_data[col] = pd.to_datetime(ssc_data[col], errors='coerce')
+        # Convert SSC date columns
+        date_columns = ['Date', 'Closed Date']
+        for col in date_columns:
+            ssc_data[col] = pd.to_datetime(ssc_data[col], errors='coerce')
 
-    # Create month and year columns for SSC data
-    ssc_data['Month'] = ssc_data['Date'].dt.month
-    ssc_data['Year'] = ssc_data['Date'].dt.year
-    ssc_data['MonthYear'] = ssc_data['Date'].dt.strftime('%Y-%m')
+        # Create month and year columns for SSC data
+        ssc_data['Month'] = ssc_data['Date'].dt.month
+        ssc_data['Year'] = ssc_data['Date'].dt.year
+        ssc_data['MonthYear'] = ssc_data['Date'].dt.strftime('%Y-%m')
 
-    return data4, data5, data6, data7, ssc_data
+        return data4, data5, data6, data7, ssc_data
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        return None, None, None, None, None
 
 
 # Load all data
 data4, data5, data6, data7, ssc_data = load_all_data()
+
+if None in [data4, data5, data6, data7, ssc_data]:
+    st.error("Failed to load one or more datasets. Please check the data files and paths.")
+    st.stop()
 
 # Sidebar navigation
 st.sidebar.title("🔍 Dashboard Navigation")
