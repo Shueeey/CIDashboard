@@ -58,7 +58,7 @@ def load_all_data():
             df['Aggregation Date'] = pd.to_datetime(df['Aggregation Date'])
 
         # Load SSC data
-        ssc_data = pd.read_csv('SSC.csv')
+        ssc_data = pd.read_csv('/mount/src/cidashboard/main/SSC.csv')
 
         # Convert SSC date columns
         date_columns = ['Date', 'Closed Date']
@@ -74,6 +74,7 @@ def load_all_data():
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return None, None, None, None, None
+
 
 
 # Load all data
