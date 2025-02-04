@@ -5,6 +5,14 @@ import calendar
 import streamlit as st
 import numpy as np
 
+def safe_division(numerator, denominator):
+    """Safely perform division handling zero denominator case"""
+    try:
+        if denominator == 0:
+            return 0
+        return (numerator / denominator) * 100
+    except:
+        return 0
 # Set page config must be the first Streamlit command
 st.set_page_config(
     page_title="Ideas Hub Dashboard",
@@ -107,26 +115,31 @@ def calculate_team_metrics(df):
     """Calculate comprehensive team performance metrics"""
     metrics = {}
 
-    # Completion Rate
-    metrics['completion_rate'] = (
-        df[df['State'] == 'Completed'].shape[0] / df.shape[0] * 100
-        if df.shape[0] > 0 else 0
+    # Safely calculate completion rate
+    total = len(df)
+    completed = len(df[df['State'] == 'Completed'])
+    metrics['completion_rate'] = round(safe_division(completed, total), 1)
+
+    # Other metrics calculations...
+    metrics['high_priority_ratio'] = round(
+        safe_division(
+            len(df[df['Priority  Level'] == 'High']),
+            total
+        ), 1
     )
 
-    # Average Time to Completion
-    df_completed = df[df['State'] == 'Completed'].copy()
-    df_completed['time_to_complete'] = (
-            pd.to_datetime(df_completed['Closed Date']) -
-            pd.to_datetime(df_completed['Date'])
-    ).dt.days
-    metrics['avg_completion_time'] = df_completed['time_to_complete'].mean()
+    metrics['active_projects'] = len(df[df['State'].isin(['In Progress', 'New'])])
 
-    # Priority Distribution
-    priority_dist = df['Priority  Level'].value_counts(normalize=True)
-    metrics['high_priority_ratio'] = priority_dist.get('High', 0) * 100
-
-    # Active Projects
-    metrics['active_projects'] = df[df['State'].isin(['In Progress', 'New'])].shape[0]
+    # Calculate average completion time only if there are completed projects
+    completed_projects = df[df['State'] == 'Completed'].copy()
+    if not completed_projects.empty:
+        completed_projects['time_to_complete'] = (
+                pd.to_datetime(completed_projects['Closed Date']) -
+                pd.to_datetime(completed_projects['Date'])
+        ).dt.days
+        metrics['avg_completion_time'] = completed_projects['time_to_complete'].mean()
+    else:
+        metrics['avg_completion_time'] = 0
 
     return metrics
 
@@ -201,10 +214,15 @@ def load_all_data():
         for df_name in ['data4', 'data5', 'data6']:
             dfs[df_name]['Aggregation Date'] = pd.to_datetime(dfs[df_name]['Aggregation Date'])
 
-        # Convert SSC date columns
+        # Convert SSC date columns with explicit format
         date_columns = ['Date', 'Closed Date']
         for col in date_columns:
-            dfs['ssc_data'][col] = pd.to_datetime(dfs['ssc_data'][col], errors='coerce')
+            dfs['ssc_data'][col] = pd.to_datetime(
+                dfs['ssc_data'][col],
+                format='%d/%m/%Y',
+                errors='coerce',
+                dayfirst=True  # Explicitly specify day-first format
+            )
 
         # Create month and year columns for SSC data
         dfs['ssc_data']['Month'] = dfs['ssc_data']['Date'].dt.month
@@ -280,59 +298,33 @@ def create_project_management_metrics(filtered_data):
     """Create comprehensive project management metrics display"""
     st.markdown("### 📊 Project Management Overview")
 
-    # Calculate metrics
-    team_metrics = calculate_team_metrics(filtered_data)
+    if filtered_data.empty:
+        # Handle empty dataset
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Ideas", "0")
+        col2.metric("Completion Rate", "0%")
+        col3.metric("High Priority", "0")
+        col4.metric("Active Teams", "0")
+        return
 
-    # Display metrics in columns with enhanced styling
+    # Calculate metrics
+    total_ideas = len(filtered_data)
+    completed = len(filtered_data[filtered_data['State'] == 'Completed'])
+    completion_rate = round(safe_division(completed, total_ideas), 1)
+    high_priority = len(filtered_data[filtered_data['Priority  Level'] == 'High'])
+    active_teams = filtered_data['Team'].nunique()
+
+    # Display metrics
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-        completion_delta = team_metrics['completion_rate'] - filtered_data['State'].value_counts(normalize=True).get(
-            'Completed', 0) * 100
-        st.metric(
-            "Completion Rate",
-            f"{team_metrics['completion_rate']:.1f}%",
-            f"{completion_delta:+.1f}% from average",
-            delta_color="normal"
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-
+        st.metric("Total Ideas", total_ideas)
     with col2:
-        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-        avg_time_delta = team_metrics['avg_completion_time'] - filtered_data[filtered_data['State'] == 'Completed'][
-            'time_to_complete'].mean()
-        st.metric(
-            "Avg. Completion Time",
-            f"{team_metrics['avg_completion_time']:.1f} days",
-            f"{avg_time_delta:+.1f} days from average",
-            delta_color="inverse"
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-
+        st.metric("Completion Rate", f"{completion_rate}%")
     with col3:
-        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-        priority_delta = team_metrics['high_priority_ratio'] - filtered_data['Priority  Level'].value_counts(
-            normalize=True).get('High', 0) * 100
-        st.metric(
-            "High Priority Items",
-            f"{team_metrics['high_priority_ratio']:.1f}%",
-            f"{priority_delta:+.1f}% from average",
-            delta_color="off"
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
-
+        st.metric("High Priority", high_priority)
     with col4:
-        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
-        active_delta = team_metrics['active_projects'] - \
-                       filtered_data[filtered_data['State'].isin(['In Progress', 'New'])].shape[0]
-        st.metric(
-            "Active Projects",
-            team_metrics['active_projects'],
-            f"{active_delta:+d} from average",
-            delta_color="normal"
-        )
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.metric("Active Teams", active_teams)
 
 
 def create_team_analysis(filtered_data):
