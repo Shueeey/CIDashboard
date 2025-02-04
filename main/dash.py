@@ -1,13 +1,13 @@
 import os
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
 import streamlit as st
 
 # Set page config must be the first Streamlit command
 st.set_page_config(
-    page_title="Combined Analytics Dashboard",
-    page_icon="📊",
+    page_title="Ideas Hub Dashboard",
+    page_icon="💡",
     layout="wide"
 )
 
@@ -22,59 +22,14 @@ except ImportError:
     plotly_available = False
     st.warning("Plotly is not installed. Using Streamlit's native charts.")
 
-# Custom CSS
-st.markdown("""
-    <style>
-    .big-font {
-        font-size:24px !important;
-        font-weight: bold;
-    }
-    .medium-font {
-        font-size:20px !important;
-        font-weight: bold;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        border-radius: 10px;
-        padding: 20px;
-        text-align: center;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
-
-def safe_division(numerator, denominator, default=0):
-    """Safely divide two numbers, returning default if denominator is 0"""
-    try:
-        return numerator / denominator if denominator != 0 else default
-    except:
-        return default
-
-
-def prepare_line_chart_data(df, x_col, y_col, color_col):
-    """Prepare data for line chart by properly aggregating and handling duplicates"""
-    try:
-        # Group by both date and platform to handle duplicates
-        grouped_data = df.groupby([x_col, color_col])[y_col].sum().reset_index()
-        # Pivot the data for plotting
-        pivot_data = grouped_data.pivot_table(
-            index=x_col,
-            columns=color_col,
-            values=y_col,
-            aggfunc='sum'
-        ).fillna(0)
-        return pivot_data
-    except Exception as e:
-        st.error(f"Error preparing chart data: {str(e)}")
-        return pd.DataFrame()
-
-
-def check_dataframe(df, name):
-    """Check if a dataframe is valid and not empty"""
-    if df is None or df.empty:
-        st.error(f"Error: {name} is empty or failed to load.")
-        return False
-    return True
+def clean_submitter_name(submitter):
+    """Cleans up the submitter name"""
+    if pd.isna(submitter):
+        return 'Unknown'
+    elif ';#' in str(submitter):
+        return submitter.split(';#')[0]
+    return submitter
 
 
 # Load all datasets
@@ -115,26 +70,80 @@ def load_all_data():
         dfs['ssc_data']['Year'] = dfs['ssc_data']['Date'].dt.year
         dfs['ssc_data']['MonthYear'] = dfs['ssc_data']['Date'].dt.strftime('%Y-%m')
 
+        # Clean submitter names
+        dfs['ssc_data']['SubmittedBy'] = dfs['ssc_data']['SubmittedBy'].apply(clean_submitter_name)
+
         return dfs
     except Exception as e:
         st.error(f"Error in data loading process: {str(e)}")
         return None
 
 
-# Load data and check if it's valid
+def prepare_line_chart_data(df, x_col, y_col, color_col):
+    """Prepare data for line chart by properly aggregating and handling duplicates"""
+    try:
+        # Group by both date and platform to handle duplicates
+        grouped_data = df.groupby([x_col, color_col])[y_col].sum().reset_index()
+        # Pivot the data for plotting
+        pivot_data = grouped_data.pivot_table(
+            index=x_col,
+            columns=color_col,
+            values=y_col,
+            aggfunc='sum'
+        ).fillna(0)
+        return pivot_data
+    except Exception as e:
+        st.error(f"Error preparing chart data: {str(e)}")
+        return pd.DataFrame()
+
+
+def safe_division(numerator, denominator, default=0):
+    """Safely divide two numbers, returning default if denominator is 0"""
+    try:
+        return numerator / denominator if denominator != 0 else default
+    except:
+        return default
+
+
+# Custom CSS
+st.markdown("""
+    <style>
+    .big-font {
+        font-size:24px !important;
+        font-weight: bold;
+    }
+    .medium-font {
+        font-size:20px !important;
+        font-weight: bold;
+    }
+    .search-container {
+        background-color: #f0f2f6;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+    .metric-container {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stExpander {
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        margin-bottom: 10px !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Load data
 dfs = load_all_data()
 
 if dfs is None:
     st.error("Failed to load data. Please check the data files and paths.")
     st.stop()
 
-# Verify all required dataframes are present and valid
-required_dfs = ['data4', 'data5', 'data6', 'data7', 'ssc_data']
-for df_name in required_dfs:
-    if df_name not in dfs or not check_dataframe(dfs[df_name], df_name):
-        st.stop()
-
-# Assign dataframes to variables for easier access
+# Assign dataframes to variables
 data4 = dfs['data4']
 data5 = dfs['data5']
 data6 = dfs['data6']
@@ -145,10 +154,212 @@ ssc_data = dfs['ssc_data']
 st.sidebar.title("🔍 Dashboard Navigation")
 main_page = st.sidebar.selectbox(
     "Select Dashboard",
-    ["App Utilization Analytics", "Ideas Management Dashboard"]
+    ["Ideas Search & Analytics", "App Utilization Analytics"]
 )
 
-if main_page == "App Utilization Analytics":
+if main_page == "Ideas Search & Analytics":
+    st.title("💡 Ideas Search & Analytics")
+
+    # Create search container
+    st.markdown('<div class="search-container">', unsafe_allow_html=True)
+
+    # Search and filter options in columns
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        search_name = st.text_input("🔍 Search by Submitter", "")
+
+    with col2:
+        all_teams = ['All Teams'] + sorted(ssc_data['Team'].dropna().unique().tolist())
+        selected_team = st.selectbox('👥 Filter by Team', all_teams)
+
+    with col3:
+        date_col1, date_col2 = st.columns(2)
+        with date_col1:
+            start_date = st.date_input("Start Date", value=None)
+        with date_col2:
+            end_date = st.date_input("End Date", value=None)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Filter data based on search criteria
+    filtered_data = ssc_data.copy()
+
+    if search_name:
+        filtered_data = filtered_data[
+            filtered_data['SubmittedBy'].str.contains(search_name, case=False, na=False)
+        ]
+
+    if selected_team != 'All Teams':
+        filtered_data = filtered_data[filtered_data['Team'] == selected_team]
+
+    if start_date:
+        filtered_data = filtered_data[filtered_data['Date'].dt.date >= start_date]
+    if end_date:
+        filtered_data = filtered_data[filtered_data['Date'].dt.date <= end_date]
+
+    # Display metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+        st.metric("Total Ideas", len(filtered_data))
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col2:
+        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+        completed = len(filtered_data[filtered_data['State'] == 'Completed'])
+        if len(filtered_data) > 0:
+            completion_rate = round((completed / len(filtered_data)) * 100, 1)
+        else:
+            completion_rate = 0
+        st.metric("Completion Rate", f"{completion_rate}%")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col3:
+        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+        st.metric("Active Teams", filtered_data['Team'].nunique())
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col4:
+        st.markdown('<div class="metric-container">', unsafe_allow_html=True)
+        high_priority = len(filtered_data[filtered_data['Priority  Level'] == 'High'])
+        st.metric("High Priority", high_priority)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Create tabs for different views
+    tab1, tab2, tab3 = st.tabs(["📋 Results", "📊 Analytics", "📈 Trends"])
+
+    with tab1:
+        if filtered_data.empty:
+            st.warning("No ideas found matching your search criteria.")
+        else:
+            # Group by submitter if only team filter is applied
+            if not search_name and selected_team != 'All Teams':
+                st.subheader("Ideas by Submitter")
+                for submitter in sorted(filtered_data['SubmittedBy'].unique()):
+                    with st.expander(f"📤 {submitter}"):
+                        submitter_ideas = filtered_data[filtered_data['SubmittedBy'] == submitter]
+                        for _, row in submitter_ideas.iterrows():
+                            st.write(f"• {row['Title']}")
+                            st.write(
+                                f"  Date: {row['Date'].strftime('%d/%m/%Y') if pd.notna(row['Date']) else 'No date'}")
+                            st.write(f"  State: {row['State']}")
+                            if pd.notna(row['Idea']):
+                                st.write(f"  Description: {row['Idea']}")
+            else:
+                # Regular list view
+                for _, row in filtered_data.iterrows():
+                    with st.expander(f"📌 {row['Title']}"):
+                        cols = st.columns(3)
+                        with cols[0]:
+                            st.write("**Submitter**")
+                            st.write(row['SubmittedBy'])
+                        with cols[1]:
+                            st.write("**Team**")
+                            st.write(row['Team'])
+                        with cols[2]:
+                            st.write("**Date**")
+                            st.write(row['Date'].strftime('%d/%m/%Y') if pd.notna(row['Date']) else 'No date')
+
+                        st.write("**Status**")
+                        st.write(row['State'])
+                        st.write("**Priority**")
+                        st.write(row['Priority  Level'])
+                        if pd.notna(row['Idea']):
+                            st.write("**Description**")
+                            st.write(row['Idea'])
+
+    with tab2:
+        if not filtered_data.empty:
+            col1, col2 = st.columns(2)
+
+            with col1:
+                # Team distribution
+                team_dist = filtered_data['Team'].value_counts()
+                st.subheader("Ideas by Team")
+                if plotly_available:
+                    fig = px.pie(values=team_dist.values, names=team_dist.index,
+                                 title='Distribution by Team')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.bar_chart(team_dist)
+
+            with col2:
+                # Status distribution
+                status_dist = filtered_data['State'].value_counts()
+                st.subheader("Ideas by Status")
+                if plotly_available:
+                    fig = px.bar(x=status_dist.index, y=status_dist.values,
+                                 title='Distribution by Status')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.bar_chart(status_dist)
+
+            # Priority and Team Cross Analysis
+            st.subheader("Team Performance Analysis")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                # Priority distribution by team
+                priority_team = pd.crosstab(filtered_data['Team'], filtered_data['Priority  Level'])
+                st.write("Priority Distribution by Team")
+                if plotly_available:
+                    fig = px.bar(priority_team,
+                                 title='Priority Levels by Team',
+                                 barmode='stack')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.bar_chart(priority_team)
+
+            with col2:
+                # Completion rate by team
+                team_completion = (filtered_data[filtered_data['State'] == 'Completed']
+                                   .groupby('Team').size() /
+                                   filtered_data.groupby('Team').size() * 100).round(1)
+                st.write("Completion Rate by Team (%)")
+                if plotly_available:
+                    fig = px.bar(x=team_completion.index, y=team_completion.values,
+                                 title='Team Completion Rates')
+                    fig.update_traces(marker_color='lightgreen')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.bar_chart(team_completion)
+
+    with tab3:
+        if not filtered_data.empty:
+            # Trends over time
+            st.subheader("Submission Trends")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                # Monthly submission trends
+                monthly_trends = filtered_data.groupby('MonthYear').size().reset_index()
+                monthly_trends.columns = ['Month', 'Count']
+
+                st.write("Monthly Submission Trends")
+                if plotly_available:
+                    fig = px.line(monthly_trends, x='Month', y='Count',
+                                  title='Ideas Submitted Over Time')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.line_chart(monthly_trends.set_index('Month'))
+
+            with col2:
+                # Team trends over time
+                team_monthly = filtered_data.groupby(['MonthYear', 'Team']).size().reset_index()
+                team_monthly.columns = ['Month', 'Team', 'Count']
+
+                st.write("Team Submission Trends")
+                if plotly_available:
+                    fig = px.line(team_monthly, x='Month', y='Count', color='Team',
+                                  title='Team Submissions Over Time')
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    pivot_data = team_monthly.pivot(index='Month', columns='Team', values='Count').fillna(0)
+                    st.line_chart(pivot_data)
+
+else:
     st.title('📱 App Utilization Analytics')
 
     # Dataset selection for app data
@@ -219,9 +430,34 @@ if main_page == "App Utilization Analytics":
             if plotly_available:
                 fig = px.line(filtered_data, x='Aggregation Date', y='App Launch Count',
                               title='Daily App Launch Trend')
+                fig.add_trace(go.Scatter(
+                    x=filtered_data['Aggregation Date'],
+                    y=filtered_data['App Launch Count'].rolling(7).mean(),
+                    name='7-day Moving Average',
+                    line=dict(color='red', dash='dash')
+                ))
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.line_chart(filtered_data.set_index('Aggregation Date')['App Launch Count'])
+
+            # Show weekly patterns
+            st.subheader("Weekly Launch Patterns")
+            filtered_data['Day'] = filtered_data['Aggregation Date'].dt.day_name()
+            daily_patterns = filtered_data.groupby('Day')['App Launch Count'].agg(['mean', 'max', 'min']).round(0)
+            daily_patterns.index = pd.Categorical(daily_patterns.index, categories=[
+                'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
+            ])
+            daily_patterns = daily_patterns.sort_index()
+
+            if plotly_available:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=daily_patterns.index, y=daily_patterns['mean'],
+                                     name='Average Launches'))
+                fig.update_layout(title='Average Daily Launch Patterns')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.bar_chart(daily_patterns['mean'])
+
         else:
             st.warning("No data available for the selected date range.")
 
@@ -243,9 +479,40 @@ if main_page == "App Utilization Analytics":
             if plotly_available:
                 fig = px.area(filtered_data, x='Aggregation Date', y='Active Users',
                               title='Active Users Over Time')
+
+                # Add trend line
+                ma7 = filtered_data['Active Users'].rolling(window=7).mean()
+                fig.add_scatter(x=filtered_data['Aggregation Date'], y=ma7,
+                                name='7-day Moving Average',
+                                line=dict(color='red', dash='dash'))
+
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.area_chart(filtered_data.set_index('Aggregation Date')['Active Users'])
+
+            # Monthly analysis
+            st.subheader("Monthly Active Users Analysis")
+            filtered_data['Month'] = filtered_data['Aggregation Date'].dt.to_period('M')
+            monthly_users = filtered_data.groupby('Month')['Active Users'].agg([
+                ('Average Users', 'mean'),
+                ('Peak Users', 'max'),
+                ('Min Users', 'min')
+            ]).round(0)
+
+            if plotly_available:
+                fig = go.Figure()
+                fig.add_trace(go.Bar(x=monthly_users.index.astype(str),
+                                     y=monthly_users['Average Users'],
+                                     name='Average Users'))
+                fig.add_trace(go.Scatter(x=monthly_users.index.astype(str),
+                                         y=monthly_users['Peak Users'],
+                                         name='Peak Users',
+                                         mode='lines+markers'))
+                fig.update_layout(title='Monthly User Metrics')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.line_chart(monthly_users)
+
         else:
             st.warning("No data available for the selected date range.")
 
@@ -264,139 +531,15 @@ if main_page == "App Utilization Analytics":
                              title='Users by Player Version')
                 fig.update_layout(xaxis_tickangle=-45)
                 st.plotly_chart(fig, use_container_width=True)
+
+                # Pie chart view
+                fig2 = px.pie(data7, values='Active Users', names='Player Version',
+                              title='Version Distribution')
+                st.plotly_chart(fig2, use_container_width=True)
             else:
                 st.bar_chart(data7.set_index('Player Version')['Active Users'])
         else:
             st.warning("No player version data available.")
-
-else:  # Ideas Management Dashboard
-    st.title("💡 Ideas Management Dashboard")
-
-    # Date filter
-    years = sorted(ssc_data['Year'].dropna().unique())
-    if years:
-        year_options = ['All Years'] + [str(year) for year in years]
-        selected_year_option = st.sidebar.selectbox('Select Year', year_options, index=0)
-
-        # Team filter
-        all_teams = sorted(ssc_data['Team'].dropna().unique())
-        selected_teams = st.sidebar.multiselect('Select Teams', all_teams, default=all_teams)
-
-        # Filter data
-        if selected_year_option == 'All Years':
-            filtered_data = ssc_data[ssc_data['Team'].isin(selected_teams)]
-        else:
-            filtered_data = ssc_data[
-                (ssc_data['Year'] == float(selected_year_option)) &
-                (ssc_data['Team'].isin(selected_teams))
-                ]
-
-        if not filtered_data.empty:
-            # Create tabs
-            tab1, tab2, tab3 = st.tabs(["📊 Overview", "👥 Team Analysis", "📈 Trends"])
-
-            with tab1:
-                # KPI metrics
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Total Ideas", len(filtered_data))
-                with col2:
-                    total_ideas = len(filtered_data)
-                    completed = len(filtered_data[filtered_data['State'] == 'Completed'])
-                    completion_rate = round(safe_division(completed, total_ideas) * 100, 1)
-                    st.metric("Completion Rate", f"{completion_rate}%")
-                with col3:
-                    high_priority = len(filtered_data[filtered_data['Priority  Level'] == 'High'])
-                    st.metric("High Priority", high_priority)
-                with col4:
-                    st.metric("Active Teams", filtered_data['Team'].nunique())
-
-                # Ideas status
-                col1, col2 = st.columns(2)
-                with col1:
-                    state_data = filtered_data['State'].value_counts()
-                    if not state_data.empty:
-                        st.write("Ideas by Status")
-                        if plotly_available:
-                            fig = px.pie(values=state_data.values, names=state_data.index,
-                                         title='Ideas by Status')
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.bar_chart(state_data)
-
-                with col2:
-                    priority_data = filtered_data['Priority  Level'].value_counts()
-                    if not priority_data.empty:
-                        st.write("Ideas by Priority")
-                        if plotly_available:
-                            fig = px.bar(x=priority_data.index, y=priority_data.values,
-                                         title='Ideas by Priority')
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.bar_chart(priority_data)
-
-            with tab2:
-                # Team performance
-                col1, col2 = st.columns(2)
-                with col1:
-                    team_data = filtered_data['Team'].value_counts()
-                    if not team_data.empty:
-                        st.write("Ideas by Team")
-                        if plotly_available:
-                            fig = px.bar(x=team_data.index, y=team_data.values,
-                                         title='Ideas by Team')
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.bar_chart(team_data)
-
-                with col2:
-                    # Calculate completion rate safely
-                    team_totals = filtered_data.groupby('Team').size()
-                    team_completed = filtered_data[filtered_data['State'] == 'Completed'].groupby('Team').size()
-                    team_completion = pd.Series({
-                        team: safe_division(team_completed.get(team, 0), total, 0) * 100
-                        for team, total in team_totals.items()
-                    }).round(1)
-
-                    if not team_completion.empty:
-                        st.write("Team Completion Rate (%)")
-                        if plotly_available:
-                            fig = px.bar(x=team_completion.index, y=team_completion.values,
-                                         title='Team Completion Rate (%)')
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.bar_chart(team_completion)
-
-            with tab3:
-                # Monthly trends
-                monthly_ideas = filtered_data.groupby('MonthYear').size()
-                if not monthly_ideas.empty:
-                    st.write("Monthly Ideas Submission Trend")
-                    if plotly_available:
-                        fig = px.line(x=monthly_ideas.index, y=monthly_ideas.values,
-                                      title='Monthly Ideas Submission Trend')
-                        st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.line_chart(monthly_ideas)
-
-                # State distribution by team
-                if not filtered_data.empty:
-                    state_team_dist = pd.crosstab(filtered_data['Team'], filtered_data['State'], margins=False)
-                    if not state_team_dist.empty:
-                        st.write("Team vs State Distribution")
-                        if plotly_available:
-                            fig = px.imshow(state_team_dist,
-                                            title='Team vs State Distribution',
-                                            aspect='auto')
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            # Convert to percentage for better visualization
-                            state_team_dist_pct = state_team_dist.div(state_team_dist.sum(axis=1), axis=0) * 100
-                            st.bar_chart(state_team_dist_pct)
-        else:
-            st.warning("No data available for the selected filters.")
-    else:
-        st.warning("No years data available in the dataset.")
 
 # Add data table with filters
 st.sidebar.title("📊 Additional Options")
