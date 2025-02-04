@@ -1,11 +1,19 @@
 import os
 import streamlit as st
 import pandas as pd
-from plotly.express import area, bar, imshow, line, pie
-import plotly.graph_objects as go
 from datetime import datetime
 import calendar
-from plotly.subplots import make_subplots
+
+# Check if Plotly is installed
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    plotly_available = True
+except ImportError:
+    plotly_available = False
+    st.warning("Plotly is not installed. Using Streamlit's native charts.")
 
 # Set page config
 st.set_page_config(
@@ -67,13 +75,6 @@ def load_all_data():
 # Load all data
 data4, data5, data6, data7, ssc_data = load_all_data()
 
-
-# Function to compute correlation
-def compute_correlation(data):
-    numeric_data = data.select_dtypes(include=['float64', 'int64'])
-    return numeric_data.corr()
-
-
 # Sidebar navigation
 st.sidebar.title("🔍 Dashboard Navigation")
 main_page = st.sidebar.selectbox(
@@ -117,19 +118,14 @@ if main_page == "App Utilization Analytics":
         col3.metric("Avg Daily Launches", f"{filtered_data['App Launch Count'].mean():,.0f}")
 
         # Platform comparison
-        fig = line(filtered_data,
-                   x='Aggregation Date',
-                   y='App Launch Count',
-                   color='Device Platform',
-                   title='App Launches by Platform Over Time')
-        st.plotly_chart(fig, use_container_width=True)
-
-        # Platform distribution
-        platform_dist = filtered_data.groupby('Device Platform')['App Launch Count'].sum()
-        fig_pie = pie(values=platform_dist.values,
-                      names=platform_dist.index,
-                      title='Launch Distribution by Platform')
-        st.plotly_chart(fig_pie, use_container_width=True)
+        if plotly_available:
+            fig = px.line(filtered_data, x='Aggregation Date', y='App Launch Count',
+                          color='Device Platform', title='App Launches by Platform Over Time')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.line_chart(filtered_data.pivot(index='Aggregation Date',
+                                              columns='Device Platform',
+                                              values='App Launch Count'))
 
     elif dataset_choice == "Daily App Launches":
         st.header("📈 Daily App Launch Trends")
@@ -145,17 +141,12 @@ if main_page == "App Utilization Analytics":
         col2.metric("Daily Average", f"{filtered_data['App Launch Count'].mean():,.0f}")
 
         # Daily trend
-        fig = line(filtered_data,
-                   x='Aggregation Date',
-                   y='App Launch Count',
-                   title='Daily App Launch Trend')
-        fig.add_trace(go.Scatter(
-            x=filtered_data['Aggregation Date'],
-            y=filtered_data['App Launch Count'].rolling(7).mean(),
-            name='7-day Moving Average',
-            line=dict(color='red', dash='dash')
-        ))
-        st.plotly_chart(fig, use_container_width=True)
+        if plotly_available:
+            fig = px.line(filtered_data, x='Aggregation Date', y='App Launch Count',
+                          title='Daily App Launch Trend')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.line_chart(filtered_data.set_index('Aggregation Date')['App Launch Count'])
 
     elif dataset_choice == "Active Users":
         st.header("👥 Active Users Analysis")
@@ -171,11 +162,12 @@ if main_page == "App Utilization Analytics":
         col2.metric("Daily Average", f"{filtered_data['Active Users'].mean():,.0f}")
 
         # Active users trend
-        fig = area(filtered_data,
-                   x='Aggregation Date',
-                   y='Active Users',
-                   title='Active Users Over Time')
-        st.plotly_chart(fig, use_container_width=True)
+        if plotly_available:
+            fig = px.area(filtered_data, x='Aggregation Date', y='Active Users',
+                          title='Active Users Over Time')
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.area_chart(filtered_data.set_index('Aggregation Date')['Active Users'])
 
     else:  # Player Versions
         st.header("🎮 Player Version Distribution")
@@ -186,12 +178,13 @@ if main_page == "App Utilization Analytics":
         col2.metric("Versions", data7['Player Version'].nunique())
 
         # Version distribution
-        fig = bar(data7,
-                  x='Player Version',
-                  y='Active Users',
-                  title='Users by Player Version')
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, use_container_width=True)
+        if plotly_available:
+            fig = px.bar(data7, x='Player Version', y='Active Users',
+                         title='Users by Player Version')
+            fig.update_layout(xaxis_tickangle=-45)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.bar_chart(data7.set_index('Player Version')['Active Users'])
 
 else:  # Ideas Management Dashboard
     st.title("💡 Ideas Management Dashboard")
@@ -231,54 +224,40 @@ else:  # Ideas Management Dashboard
         # Ideas status
         col1, col2 = st.columns(2)
         with col1:
-            fig = pie(filtered_data,
-                      names='State',
-                      title='Ideas by Status',
-                      hole=0.4)
-            st.plotly_chart(fig, use_container_width=True)
+            state_data = filtered_data['State'].value_counts()
+            st.write("Ideas by Status")
+            st.bar_chart(state_data)
 
         with col2:
-            priority_counts = filtered_data['Priority  Level'].value_counts()
-            fig = bar(x=priority_counts.index,
-                      y=priority_counts.values,
-                      title='Ideas by Priority')
-            st.plotly_chart(fig, use_container_width=True)
+            priority_data = filtered_data['Priority  Level'].value_counts()
+            st.write("Ideas by Priority")
+            st.bar_chart(priority_data)
 
     with tab2:
         # Team performance
         col1, col2 = st.columns(2)
         with col1:
-            team_counts = filtered_data['Team'].value_counts()
-            fig = bar(x=team_counts.index,
-                      y=team_counts.values,
-                      title='Ideas by Team')
-            st.plotly_chart(fig, use_container_width=True)
+            team_data = filtered_data['Team'].value_counts()
+            st.write("Ideas by Team")
+            st.bar_chart(team_data)
 
         with col2:
             team_completion = (filtered_data[filtered_data['State'] == 'Completed']
                                .groupby('Team').size() /
                                filtered_data.groupby('Team').size() * 100).round(1)
-            fig = bar(x=team_completion.index,
-                      y=team_completion.values,
-                      title='Team Completion Rate (%)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.write("Team Completion Rate (%)")
+            st.bar_chart(team_completion)
 
     with tab3:
         # Monthly trends
-        monthly_ideas = filtered_data.groupby('MonthYear').size().reset_index()
-        monthly_ideas.columns = ['Month', 'Count']
-        fig = line(monthly_ideas,
-                   x='Month',
-                   y='Count',
-                   title='Monthly Ideas Submission Trend')
-        st.plotly_chart(fig, use_container_width=True)
+        monthly_ideas = filtered_data.groupby('MonthYear').size()
+        st.write("Monthly Ideas Submission Trend")
+        st.line_chart(monthly_ideas)
 
-        # State distribution heatmap
+        # State distribution by team
         state_team_dist = pd.crosstab(filtered_data['Team'], filtered_data['State'])
-        fig = imshow(state_team_dist,
-                     title='Team vs State Distribution',
-                     aspect='auto')
-        st.plotly_chart(fig, use_container_width=True)
+        st.write("Team vs State Distribution")
+        st.bar_chart(state_team_dist)
 
 # Add data table with filters
 st.sidebar.title("📊 Additional Options")
