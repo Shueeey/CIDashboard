@@ -275,17 +275,21 @@ else:  # Ideas Management Dashboard
     # Date filter
     years = sorted(ssc_data['Year'].dropna().unique())
     if years:
-        selected_year = st.sidebar.selectbox('Select Year', years, index=len(years) - 1)
+        year_options = ['All Years'] + [str(year) for year in years]
+        selected_year_option = st.sidebar.selectbox('Select Year', year_options, index=0)
 
         # Team filter
         all_teams = sorted(ssc_data['Team'].dropna().unique())
         selected_teams = st.sidebar.multiselect('Select Teams', all_teams, default=all_teams)
 
         # Filter data
-        filtered_data = ssc_data[
-            (ssc_data['Year'] == selected_year) &
-            (ssc_data['Team'].isin(selected_teams))
-            ]
+        if selected_year_option == 'All Years':
+            filtered_data = ssc_data[ssc_data['Team'].isin(selected_teams)]
+        else:
+            filtered_data = ssc_data[
+                (ssc_data['Year'] == float(selected_year_option)) &
+                (ssc_data['Team'].isin(selected_teams))
+                ]
 
         if not filtered_data.empty:
             # Create tabs
