@@ -367,6 +367,11 @@ else:
         "Choose Dataset",
         ["App Launches by Platform", "Daily App Launches", "Active Users", "Player Versions"]
     )
+    # Dataset selection for app data
+    dataset_choice = st.sidebar.selectbox(
+        "Choose Dataset",
+        ["App Launches by Platform", "Daily App Launches", "Active Users", "Player Versions"]
+    )
 
     # Date range filter for time-series data
     if dataset_choice in ["App Launches by Platform", "Daily App Launches", "Active Users"]:
