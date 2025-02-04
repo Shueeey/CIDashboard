@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+from plotly.express import area, bar, imshow, line, pie
 import plotly.graph_objects as go
 from datetime import datetime
 import calendar
@@ -117,18 +117,18 @@ if main_page == "App Utilization Analytics":
         col3.metric("Avg Daily Launches", f"{filtered_data['App Launch Count'].mean():,.0f}")
 
         # Platform comparison
-        fig = px.line(filtered_data,
-                      x='Aggregation Date',
-                      y='App Launch Count',
-                      color='Device Platform',
-                      title='App Launches by Platform Over Time')
+        fig = line(filtered_data,
+                   x='Aggregation Date',
+                   y='App Launch Count',
+                   color='Device Platform',
+                   title='App Launches by Platform Over Time')
         st.plotly_chart(fig, use_container_width=True)
 
         # Platform distribution
         platform_dist = filtered_data.groupby('Device Platform')['App Launch Count'].sum()
-        fig_pie = px.pie(values=platform_dist.values,
-                         names=platform_dist.index,
-                         title='Launch Distribution by Platform')
+        fig_pie = pie(values=platform_dist.values,
+                      names=platform_dist.index,
+                      title='Launch Distribution by Platform')
         st.plotly_chart(fig_pie, use_container_width=True)
 
     elif dataset_choice == "Daily App Launches":
@@ -145,10 +145,10 @@ if main_page == "App Utilization Analytics":
         col2.metric("Daily Average", f"{filtered_data['App Launch Count'].mean():,.0f}")
 
         # Daily trend
-        fig = px.line(filtered_data,
-                      x='Aggregation Date',
-                      y='App Launch Count',
-                      title='Daily App Launch Trend')
+        fig = line(filtered_data,
+                   x='Aggregation Date',
+                   y='App Launch Count',
+                   title='Daily App Launch Trend')
         fig.add_trace(go.Scatter(
             x=filtered_data['Aggregation Date'],
             y=filtered_data['App Launch Count'].rolling(7).mean(),
@@ -171,10 +171,10 @@ if main_page == "App Utilization Analytics":
         col2.metric("Daily Average", f"{filtered_data['Active Users'].mean():,.0f}")
 
         # Active users trend
-        fig = px.area(filtered_data,
-                      x='Aggregation Date',
-                      y='Active Users',
-                      title='Active Users Over Time')
+        fig = area(filtered_data,
+                   x='Aggregation Date',
+                   y='Active Users',
+                   title='Active Users Over Time')
         st.plotly_chart(fig, use_container_width=True)
 
     else:  # Player Versions
@@ -186,10 +186,10 @@ if main_page == "App Utilization Analytics":
         col2.metric("Versions", data7['Player Version'].nunique())
 
         # Version distribution
-        fig = px.bar(data7,
-                     x='Player Version',
-                     y='Active Users',
-                     title='Users by Player Version')
+        fig = bar(data7,
+                  x='Player Version',
+                  y='Active Users',
+                  title='Users by Player Version')
         fig.update_layout(xaxis_tickangle=-45)
         st.plotly_chart(fig, use_container_width=True)
 
@@ -231,17 +231,17 @@ else:  # Ideas Management Dashboard
         # Ideas status
         col1, col2 = st.columns(2)
         with col1:
-            fig = px.pie(filtered_data,
-                         names='State',
-                         title='Ideas by Status',
-                         hole=0.4)
+            fig = pie(filtered_data,
+                      names='State',
+                      title='Ideas by Status',
+                      hole=0.4)
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
             priority_counts = filtered_data['Priority  Level'].value_counts()
-            fig = px.bar(x=priority_counts.index,
-                         y=priority_counts.values,
-                         title='Ideas by Priority')
+            fig = bar(x=priority_counts.index,
+                      y=priority_counts.values,
+                      title='Ideas by Priority')
             st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
@@ -249,35 +249,35 @@ else:  # Ideas Management Dashboard
         col1, col2 = st.columns(2)
         with col1:
             team_counts = filtered_data['Team'].value_counts()
-            fig = px.bar(x=team_counts.index,
-                         y=team_counts.values,
-                         title='Ideas by Team')
+            fig = bar(x=team_counts.index,
+                      y=team_counts.values,
+                      title='Ideas by Team')
             st.plotly_chart(fig, use_container_width=True)
 
         with col2:
             team_completion = (filtered_data[filtered_data['State'] == 'Completed']
                                .groupby('Team').size() /
                                filtered_data.groupby('Team').size() * 100).round(1)
-            fig = px.bar(x=team_completion.index,
-                         y=team_completion.values,
-                         title='Team Completion Rate (%)')
+            fig = bar(x=team_completion.index,
+                      y=team_completion.values,
+                      title='Team Completion Rate (%)')
             st.plotly_chart(fig, use_container_width=True)
 
     with tab3:
         # Monthly trends
         monthly_ideas = filtered_data.groupby('MonthYear').size().reset_index()
         monthly_ideas.columns = ['Month', 'Count']
-        fig = px.line(monthly_ideas,
-                      x='Month',
-                      y='Count',
-                      title='Monthly Ideas Submission Trend')
+        fig = line(monthly_ideas,
+                   x='Month',
+                   y='Count',
+                   title='Monthly Ideas Submission Trend')
         st.plotly_chart(fig, use_container_width=True)
 
         # State distribution heatmap
         state_team_dist = pd.crosstab(filtered_data['Team'], filtered_data['State'])
-        fig = px.imshow(state_team_dist,
-                        title='Team vs State Distribution',
-                        aspect='auto')
+        fig = imshow(state_team_dist,
+                     title='Team vs State Distribution',
+                     aspect='auto')
         st.plotly_chart(fig, use_container_width=True)
 
 # Add data table with filters
