@@ -608,11 +608,8 @@ if main_page in ["Ideas Search & Analytics", "Project Management"]:
                     with col2:
                         st.markdown('<div class="chart-container">', unsafe_allow_html=True)
                         st.markdown("### Member Statistics")
-                        styled_df = member_df.style.background_gradient(
-                            subset=['Total Ideas', 'Completed'],
-                            cmap='YlOrRd'
-                        )
-                        st.dataframe(styled_df, use_container_width=True)
+                        # Replace the styled DataFrame with a plain DataFrame
+                        st.dataframe(member_df, use_container_width=True)
                         st.markdown('</div>', unsafe_allow_html=True)
 
                     if show_inactive:
